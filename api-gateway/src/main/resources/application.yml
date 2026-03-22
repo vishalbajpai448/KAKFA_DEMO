@@ -1,0 +1,22 @@
+server:
+  port: 9000  # The single entry point for all your services
+
+spring:
+  cloud:
+    gateway:
+      routes:
+        # Route 1: Delivery Service (Producer)
+        - id: delivery-service
+          uri: http://localhost:8081
+          predicates:
+            - Path=/delivery/**
+          filters:
+            - StripPrefix=1
+
+        # Route 2: Customer Service (Consumer/DLT Monitor)
+        - id: customer-service
+          uri: http://localhost:8082
+          predicates:
+            - Path=/customer/**
+          filters:
+            - StripPrefix=1

@@ -5,8 +5,13 @@ import com.swiftride.customer_service.Entities.LocationHistory;
 import com.swiftride.customer_service.Repositories.LocationRepository;
 import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.core.KafkaTemplate;
+import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
+import org.springframework.kafka.listener.DefaultErrorHandler;
+import org.springframework.util.backoff.FixedBackOff;
 
 @Configuration
 public class KafkaConfig {
@@ -14,8 +19,18 @@ public class KafkaConfig {
     @Autowired // Add this to inject your Repository
     private LocationRepository locationRepository;
 
+    @Bean
+    public DefaultErrorHandler errorHandler(KafkaTemplate<String,Object> template) {
+        var recoverer = new DeadLetterPublishingRecoverer(template);
+        var backOff = new FixedBackOff(2000L, 3);
+        return new DefaultErrorHandler(recoverer, backOff);
+    }
+
     @KafkaListener(topics = "location-update-topic", groupId = "group-1")
     public void handleLocation(LocationData data) {
+        if(data.getRiderId() == null || data.getRiderId().isEmpty()) {
+            throw new RuntimeException("Invalid Data: Missing Driver ID");
+        }
         System.out.println("Received Object -> Rider: " + data.getRiderId() + " is at " + data.getLatitude());
 
         // 1. Create the Entity object
